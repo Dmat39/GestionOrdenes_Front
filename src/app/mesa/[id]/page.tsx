@@ -2,7 +2,8 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { api, formatPrecio } from '@/lib/api';
-import type { MenuDia, CartItem, Visita } from '@/types';
+import { getSocket } from '@/lib/socket';
+import type { MenuDia, CartItem, Visita, MenuDiaItem } from '@/types';
 
 const CATEGORIA_COLORS: Record<string, string> = {
   Entradas: 'bg-amber-100 text-amber-700',
@@ -60,6 +61,49 @@ export default function MesaPage() {
     }
     init();
   }, [id]);
+
+  useEffect(() => {
+    const socket = getSocket();
+
+    socket.on('menu_dia_creado', (menu: MenuDia) => {
+      setMenu(menu);
+    });
+
+    socket.on('menu_item_actualizado', (item: MenuDiaItem) => {
+      setMenu((prev) =>
+        prev ? { ...prev, items: prev.items.map((i) => (i.id === item.id ? item : i)) } : prev,
+      );
+    });
+
+    socket.on('menu_item_eliminado', ({ itemId }: { itemId: number }) => {
+      setMenu((prev) => {
+        if (!prev) return prev;
+        const eliminado = prev.items.find((i) => i.id === itemId);
+        if (eliminado) {
+          setCart((cart) => cart.filter((c) => c.platoId !== eliminado.plato.id));
+        }
+        return { ...prev, items: prev.items.filter((i) => i.id !== itemId) };
+      });
+    });
+
+    socket.on('menu_plato_agregado', (item: MenuDiaItem) => {
+      setMenu((prev) =>
+        prev ? { ...prev, items: [...prev.items, item] } : prev,
+      );
+    });
+
+    socket.on('menu_dia_eliminado', () => {
+      setMenu(null);
+    });
+
+    return () => {
+      socket.off('menu_dia_creado');
+      socket.off('menu_item_actualizado');
+      socket.off('menu_item_eliminado');
+      socket.off('menu_plato_agregado');
+      socket.off('menu_dia_eliminado');
+    };
+  }, []);
 
   function saveCart(newCart: CartItem[]) {
     setCart(newCart);

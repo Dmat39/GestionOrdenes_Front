@@ -79,8 +79,9 @@ export default function UsuariosPage() {
       setNewPassword('');
       setNewRol('MESERO');
       setShowForm(false);
-    } catch (err: any) {
-      alert(err.response?.data?.message ?? 'Error al crear usuario');
+    } catch (err) {
+      const e = err as { response?: { data?: { message?: string } } };
+      alert(e.response?.data?.message ?? 'Error al crear usuario');
     } finally {
       setCreating(false);
     }
